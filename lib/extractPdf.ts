@@ -24,6 +24,11 @@ function isTextItem(item: PdfItem): item is PdfTextItem {
   );
 }
 
+// PDF stores Hebrew in visual left-to-right order; reverse chars to get logical Unicode order.
+function toLogicalOrder(str: string): string {
+  return str.split('').reverse().join('');
+}
+
 export function buildPageText(items: PdfItem[]): string {
   const textItems = items.filter(isTextItem);
   if (textItems.length === 0) return '';
@@ -52,9 +57,9 @@ export function buildPageText(items: PdfItem[]): string {
   return sortedYs
     .map(y => {
       const lineItems = lineMap.get(y)!;
-      // Sort right to left (higher X = rightmost on page = first in Hebrew reading order)
+      // Items are in visual left-to-right page order; sort right-to-left for Hebrew reading order
       lineItems.sort((a, b) => b.transform[4] - a.transform[4]);
-      return lineItems.map(item => item.str).join('');
+      return lineItems.map(item => toLogicalOrder(item.str)).join('');
     })
     .join('\n');
 }
@@ -92,13 +97,6 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const textContent = await page.getTextContent();
-    if (pageNum === 1) {
-      const debugItems = textContent.items
-        .filter(isTextItem)
-        .slice(0, 30)
-        .map(item => ({ str: (item as PdfTextItem).str, x: (item as PdfTextItem).transform[4], y: (item as PdfTextItem).transform[5] }));
-      console.log('[extractPdf] first 30 items from page 1:', JSON.stringify(debugItems, null, 2));
-    }
     pageTexts.push(buildPageText(textContent.items));
   }
 
