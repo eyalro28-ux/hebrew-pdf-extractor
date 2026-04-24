@@ -1,8 +1,13 @@
-type PdfTextItem = { str: string; transform: number[] };
+type PdfTextItem = { str: string; transform: [number, number, number, number, number, number] };
 type PdfItem = PdfTextItem | Record<string, unknown>;
 
 function isTextItem(item: PdfItem): item is PdfTextItem {
-  return 'str' in item && typeof (item as PdfTextItem).str === 'string';
+  return (
+    'str' in item &&
+    typeof (item as PdfTextItem).str === 'string' &&
+    Array.isArray((item as PdfTextItem).transform) &&
+    (item as PdfTextItem).transform.length >= 6
+  );
 }
 
 export function buildPageText(items: PdfItem[]): string {
