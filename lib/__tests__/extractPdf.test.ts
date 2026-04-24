@@ -23,11 +23,17 @@ describe('buildPageText', () => {
   });
 
   it('does not add newline when Y changes by 2 or less', () => {
-    const items = [
+    const delta1 = [
       { str: 'א', transform: [1, 0, 0, 1, 100, 700] },
       { str: 'ב', transform: [1, 0, 0, 1, 120, 701] },
     ];
-    expect(buildPageText(items)).toBe('אב');
+    expect(buildPageText(delta1)).toBe('אב');
+
+    const delta2 = [
+      { str: 'א', transform: [1, 0, 0, 1, 100, 700] },
+      { str: 'ב', transform: [1, 0, 0, 1, 120, 698] },
+    ];
+    expect(buildPageText(delta2)).toBe('אב');
   });
 
   it('skips non-text items (no str property)', () => {
