@@ -12,6 +12,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const generationRef = useRef(0);
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -19,14 +20,22 @@ export default function Home() {
       setState('error');
       return;
     }
+    const generation = ++generationRef.current;
     setState('loading');
     setError('');
     setText('');
     try {
       const extracted = await extractTextFromPdf(file);
+      if (generation !== generationRef.current) return;
+      if (!extracted.trim()) {
+        setError('No text found. The PDF may contain only images.');
+        setState('error');
+        return;
+      }
       setText(extracted);
       setState('done');
     } catch {
+      if (generation !== generationRef.current) return;
       setError('Failed to extract text. The PDF may be password-protected or corrupted.');
       setState('error');
     }
@@ -44,9 +53,13 @@ export default function Home() {
   }
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — silently no-op
+    }
   }
 
   function handleDownload() {
