@@ -1,13 +1,12 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
   turbopack: {
-    // canvas is an optional native dependency of pdfjs-dist that we don't need in the browser.
-    // Turbopack cannot resolve `false` directly, so we alias it to an empty module.
+    // pdfjs-dist optionally requires 'canvas' (a Node.js native addon).
+    // We stub it out with an empty module so Turbopack can resolve the require.
     resolveAlias: {
-      canvas: {
-        browser: './lib/empty.ts',
-      },
+      canvas: path.resolve('./lib/empty.ts'),
     },
   },
   webpack: (config) => {
