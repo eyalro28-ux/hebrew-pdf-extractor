@@ -92,6 +92,13 @@ export async function extractTextFromPdf(file: File): Promise<string> {
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const textContent = await page.getTextContent();
+    if (pageNum === 1) {
+      const debugItems = textContent.items
+        .filter(isTextItem)
+        .slice(0, 30)
+        .map(item => ({ str: (item as PdfTextItem).str, x: (item as PdfTextItem).transform[4], y: (item as PdfTextItem).transform[5] }));
+      console.log('[extractPdf] first 30 items from page 1:', JSON.stringify(debugItems, null, 2));
+    }
     pageTexts.push(buildPageText(textContent.items));
   }
 
