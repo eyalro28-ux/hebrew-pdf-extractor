@@ -6,10 +6,11 @@ describe('buildPageText', () => {
     expect(buildPageText([])).toBe('');
   });
 
-  it('joins text items on the same line (same Y)', () => {
+  it('joins text items on the same line (same Y), right-to-left', () => {
+    // In Hebrew PDFs, 'שלום' appears to the right (higher X) and 'עולם' to the left (lower X)
     const items = [
-      { str: 'שלום ', transform: [1, 0, 0, 1, 100, 700] },
-      { str: 'עולם', transform: [1, 0, 0, 1, 160, 700] },
+      { str: 'שלום ', transform: [1, 0, 0, 1, 160, 700] },
+      { str: 'עולם', transform: [1, 0, 0, 1, 100, 700] },
     ];
     expect(buildPageText(items)).toBe('שלום עולם');
   });
@@ -23,15 +24,16 @@ describe('buildPageText', () => {
   });
 
   it('does not add newline when Y changes by 2 or less', () => {
+    // 'א' at higher X appears first in RTL order
     const delta1 = [
-      { str: 'א', transform: [1, 0, 0, 1, 100, 700] },
-      { str: 'ב', transform: [1, 0, 0, 1, 120, 701] },
+      { str: 'א', transform: [1, 0, 0, 1, 120, 700] },
+      { str: 'ב', transform: [1, 0, 0, 1, 100, 701] },
     ];
     expect(buildPageText(delta1)).toBe('אב');
 
     const delta2 = [
-      { str: 'א', transform: [1, 0, 0, 1, 100, 700] },
-      { str: 'ב', transform: [1, 0, 0, 1, 120, 698] },
+      { str: 'א', transform: [1, 0, 0, 1, 120, 700] },
+      { str: 'ב', transform: [1, 0, 0, 1, 100, 698] },
     ];
     expect(buildPageText(delta2)).toBe('אב');
   });

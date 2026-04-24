@@ -28,19 +28,35 @@ export function buildPageText(items: PdfItem[]): string {
   const textItems = items.filter(isTextItem);
   if (textItems.length === 0) return '';
 
-  let result = '';
-  let lastY: number | null = null;
-
+  // Group items by Y coordinate (within 2-unit tolerance)
+  const lineMap = new Map<number, PdfTextItem[]>();
   for (const item of textItems) {
-    const currentY = item.transform[5];
-    if (lastY !== null && Math.abs(currentY - lastY) > 2) {
-      result += '\n';
+    const y = item.transform[5];
+    let matchedY: number | undefined;
+    for (const existingY of lineMap.keys()) {
+      if (Math.abs(existingY - y) <= 2) {
+        matchedY = existingY;
+        break;
+      }
     }
-    result += item.str;
-    lastY = currentY;
+    if (matchedY === undefined) {
+      lineMap.set(y, [item]);
+    } else {
+      lineMap.get(matchedY)!.push(item);
+    }
   }
 
-  return result;
+  // Sort lines top to bottom (PDF Y increases upward → higher Y = top of page)
+  const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
+
+  return sortedYs
+    .map(y => {
+      const lineItems = lineMap.get(y)!;
+      // Sort right to left (higher X = rightmost on page = first in Hebrew reading order)
+      lineItems.sort((a, b) => b.transform[4] - a.transform[4]);
+      return lineItems.map(item => item.str).join('');
+    })
+    .join('\n');
 }
 
 const PDFJS_VERSION = '3.11.174';
