@@ -2,9 +2,9 @@
 
 import { useState, useRef } from 'react';
 import type { DragEvent, ChangeEvent } from 'react';
-import { extractTextFromPdf } from '@/lib/extractPdf';
+import { extractTextFromPdf, renderPdfPagesToImages, isLikelyGarbledHebrew } from '@/lib/extractPdf';
 
-type State = 'idle' | 'loading' | 'done' | 'error';
+type State = 'idle' | 'loading' | 'vision' | 'done' | 'error';
 
 export default function Home() {
   const [text, setText] = useState('');
@@ -13,6 +13,34 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const generationRef = useRef(0);
+  const currentFileRef = useRef<File | null>(null);
+
+  async function runVision(file: File, generation: number) {
+    setState('vision');
+    try {
+      const pages = await renderPdfPagesToImages(file);
+      if (generation !== generationRef.current) return;
+      const res = await fetch('/api/extract-vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pages }),
+      });
+      if (!res.ok) throw new Error('Vision API returned ' + res.status);
+      const { text: visionText } = await res.json() as { text: string };
+      if (generation !== generationRef.current) return;
+      if (!visionText.trim()) {
+        setError('No text could be extracted from this PDF.');
+        setState('error');
+        return;
+      }
+      setText(visionText);
+      setState('done');
+    } catch {
+      if (generation !== generationRef.current) return;
+      setError('Failed to extract text via AI Vision.');
+      setState('error');
+    }
+  }
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -21,17 +49,19 @@ export default function Home() {
       return;
     }
     const generation = ++generationRef.current;
+    currentFileRef.current = file;
     setState('loading');
     setError('');
     setText('');
     try {
       const extracted = await extractTextFromPdf(file);
       if (generation !== generationRef.current) return;
-      if (!extracted.trim()) {
-        setError('No text found. The PDF may contain only images.');
-        setState('error');
+
+      if (!extracted.trim() || isLikelyGarbledHebrew(extracted)) {
+        await runVision(file, generation);
         return;
       }
+
       setText(extracted);
       setState('done');
     } catch {
@@ -39,6 +69,15 @@ export default function Home() {
       setError('Failed to extract text. The PDF may be password-protected or corrupted.');
       setState('error');
     }
+  }
+
+  async function handleRetryWithVision() {
+    const file = currentFileRef.current;
+    if (!file) return;
+    const generation = ++generationRef.current;
+    setText('');
+    setError('');
+    await runVision(file, generation);
   }
 
   function handleDrop(e: DragEvent<HTMLDivElement>) {
@@ -96,6 +135,10 @@ export default function Home() {
         <p className="text-gray-500 mb-4">Extracting text...</p>
       )}
 
+      {state === 'vision' && (
+        <p className="text-gray-500 mb-4">Running AI Vision extraction...</p>
+      )}
+
       {state === 'error' && (
         <p className="text-red-600 mb-4">{error}</p>
       )}
@@ -114,6 +157,12 @@ export default function Home() {
               className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
             >
               Download .txt
+            </button>
+            <button
+              onClick={handleRetryWithVision}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+            >
+              Text looks wrong? Try AI
             </button>
           </div>
           <textarea

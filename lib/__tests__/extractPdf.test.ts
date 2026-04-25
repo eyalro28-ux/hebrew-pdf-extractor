@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPageText } from '../extractPdf';
+import { buildPageText, isLikelyGarbledHebrew } from '../extractPdf';
 
 describe('buildPageText', () => {
   it('returns empty string for empty items', () => {
@@ -53,5 +53,31 @@ describe('buildPageText', () => {
       { type: 'beginMarkedContent', id: 'mc1' },
     ];
     expect(buildPageText(items)).toBe('בתוך');
+  });
+});
+
+describe('isLikelyGarbledHebrew', () => {
+  it('returns true when a word starts with a final-form letter (ם)', () => {
+    expect(isLikelyGarbledHebrew('םרכעס לתירלר')).toBe(true);
+  });
+
+  it('returns true for ך at word start', () => {
+    expect(isLikelyGarbledHebrew('ךותב לכ')).toBe(true);
+  });
+
+  it('returns true for ן at word start', () => {
+    expect(isLikelyGarbledHebrew('שלום ןכ')).toBe(true);
+  });
+
+  it('returns false for valid Hebrew text', () => {
+    expect(isLikelyGarbledHebrew('שיעור 3 - תרגול 1')).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(isLikelyGarbledHebrew('')).toBe(false);
+  });
+
+  it('returns false for text with no Hebrew', () => {
+    expect(isLikelyGarbledHebrew('hello world 123')).toBe(false);
   });
 });

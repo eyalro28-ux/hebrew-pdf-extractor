@@ -11,8 +11,12 @@ type PdfDocument = {
   getPage: (num: number) => Promise<PdfPage>;
 };
 
+type PdfViewport = { width: number; height: number };
+
 type PdfPage = {
   getTextContent: () => Promise<{ items: PdfItem[] }>;
+  getViewport: (options: { scale: number }) => PdfViewport;
+  render: (options: { canvasContext: CanvasRenderingContext2D; viewport: PdfViewport }) => { promise: Promise<void> };
 };
 
 function isTextItem(item: PdfItem): item is PdfTextItem {
@@ -64,6 +68,14 @@ export function buildPageText(items: PdfItem[]): string {
     .join('\n');
 }
 
+// Final-form Hebrew letters (ם,ן,ך,ף,ץ) never appear at the start of a valid Hebrew word.
+// If any word starts with one, the font encoding is broken and text extraction is garbled.
+const HEBREW_FINAL_FORMS = new Set(['ם', 'ן', 'ך', 'ף', 'ץ']);
+
+export function isLikelyGarbledHebrew(text: string): boolean {
+  return text.split(/\s+/).some(word => word.length > 0 && HEBREW_FINAL_FORMS.has(word[0]));
+}
+
 const PDFJS_VERSION = '3.11.174';
 const PDFJS_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`;
 
@@ -85,6 +97,29 @@ async function getPdfJs(): Promise<PdfJsLib> {
   lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
   cachedLib = lib;
   return lib;
+}
+
+export async function renderPdfPagesToImages(file: File): Promise<string[]> {
+  const lib = await getPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+
+  const images: string[] = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 2.0 });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    images.push(canvas.toDataURL('image/png'));
+  }
+
+  return images;
 }
 
 export async function extractTextFromPdf(file: File): Promise<string> {
