@@ -90,7 +90,7 @@ export default function Home() {
 
   async function handleRetryWithVision() {
     const file = currentFileRef.current;
-    if (!file) return;
+    if (!file || state === 'vision' || state === 'loading') return;
     const generation = ++generationRef.current;
     setText('');
     setError('');

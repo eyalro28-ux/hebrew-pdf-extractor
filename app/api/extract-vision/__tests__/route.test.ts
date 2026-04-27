@@ -50,19 +50,31 @@ describe('POST /api/extract-vision', () => {
     expect(res.status).toBe(400);
   });
 
-  it('calls Claude once per page and returns combined text', async () => {
-    getMockCreate()
-      .mockResolvedValueOnce({ content: [{ type: 'text', text: 'שלום עולם' }] })
-      .mockResolvedValueOnce({ content: [{ type: 'text', text: 'פסקה שנייה' }] });
-
+  it('returns 400 when pages has more than one element', async () => {
     const res = await POST(makeRequest({
-      pages: ['data:image/png;base64,abc1', 'data:image/png;base64,abc2'],
+      pages: ['data:image/jpeg;base64,abc1', 'data:image/jpeg;base64,abc2'],
     }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/one page per request/);
+  });
+
+  it('returns 400 when pages contains non-string elements', async () => {
+    const res = await POST(makeRequest({ pages: [42] }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/strings/);
+  });
+
+  it('calls Claude and returns extracted text for a single page', async () => {
+    getMockCreate().mockResolvedValueOnce({ content: [{ type: 'text', text: 'שלום עולם' }] });
+
+    const res = await POST(makeRequest({ pages: ['data:image/jpeg;base64,abc1'] }));
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.text).toBe('שלום עולם\n\nפסקה שנייה');
-    expect(getMockCreate()).toHaveBeenCalledTimes(2);
+    expect(body.text).toBe('שלום עולם');
+    expect(getMockCreate()).toHaveBeenCalledTimes(1);
   });
 
   it('strips data URL prefix and sets jpeg media_type before sending to Claude', async () => {

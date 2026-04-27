@@ -13,6 +13,12 @@ export async function POST(request: Request) {
     if (!Array.isArray(body.pages) || body.pages.length === 0) {
       return NextResponse.json({ error: 'pages must be a non-empty array' }, { status: 400 });
     }
+    if (body.pages.length > 1) {
+      return NextResponse.json({ error: 'send one page per request' }, { status: 400 });
+    }
+    if (!body.pages.every((p: unknown) => typeof p === 'string')) {
+      return NextResponse.json({ error: 'pages must be an array of strings' }, { status: 400 });
+    }
     pages = body.pages as string[];
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
