@@ -20,21 +20,30 @@ export default function Home() {
     try {
       const pages = await renderPdfPagesToImages(file);
       if (generation !== generationRef.current) return;
-      const res = await fetch('/api/extract-vision', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pages }),
-      });
-      if (!res.ok) {
-        let detail = `status ${res.status}`;
-        try {
-          const body = await res.json() as { error?: string };
-          if (body.error) detail = body.error;
-        } catch { /* non-JSON response */ }
-        throw new Error(detail);
+
+      // Send one page at a time to stay under Vercel's 4.5MB body limit
+      const pageTexts: string[] = [];
+      for (const page of pages) {
+        if (generation !== generationRef.current) return;
+        const res = await fetch('/api/extract-vision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pages: [page] }),
+        });
+        if (!res.ok) {
+          let detail = `status ${res.status}`;
+          try {
+            const body = await res.json() as { error?: string };
+            if (body.error) detail = body.error;
+          } catch { /* non-JSON response */ }
+          throw new Error(detail);
+        }
+        const { text: pageText } = await res.json() as { text: string };
+        pageTexts.push(pageText);
       }
-      const { text: visionText } = await res.json() as { text: string };
+
       if (generation !== generationRef.current) return;
+      const visionText = pageTexts.join('\n\n');
       if (!visionText.trim()) {
         setError('No text could be extracted from this PDF.');
         setState('error');
