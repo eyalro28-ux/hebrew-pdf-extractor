@@ -108,7 +108,7 @@ export async function renderPdfPagesToImages(file: File): Promise<string[]> {
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 2.0 });
+    const viewport = page.getViewport({ scale: 1.5 });
 
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
