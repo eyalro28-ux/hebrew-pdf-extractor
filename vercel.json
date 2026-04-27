@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "app/api/extract-vision/route.ts": {
-      "maxDuration": 60
-    }
-  }
-}

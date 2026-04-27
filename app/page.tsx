@@ -88,6 +88,11 @@ export default function Home() {
       setState('error');
       return;
     }
+    if (file.size > 50 * 1024 * 1024) {
+      setError('File too large (max 50MB).');
+      setState('error');
+      return;
+    }
     const generation = ++generationRef.current;
     currentFileRef.current = file;
     setState('loading');
