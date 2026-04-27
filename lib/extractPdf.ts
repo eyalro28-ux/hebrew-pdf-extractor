@@ -116,7 +116,7 @@ export async function renderPdfPagesToImages(file: File): Promise<string[]> {
     const ctx = canvas.getContext('2d')!;
 
     await page.render({ canvasContext: ctx, viewport }).promise;
-    images.push(canvas.toDataURL('image/png'));
+    images.push(canvas.toDataURL('image/jpeg', 0.85));
   }
 
   return images;

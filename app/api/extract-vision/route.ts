@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   try {
     for (const pageDataUrl of pages) {
-      const base64 = pageDataUrl.replace(/^data:image\/\w+;base64,/, '');
+      const base64 = pageDataUrl.replace(/^data:image\/[^;]+;base64,/, '');
 
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
             content: [
               {
                 type: 'image',
-                source: { type: 'base64', media_type: 'image/png', data: base64 },
+                source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
               },
               {
                 type: 'text',
