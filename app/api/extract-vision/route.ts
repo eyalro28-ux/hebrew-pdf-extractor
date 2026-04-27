@@ -3,6 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic();
 
+// Allow up to 60s for Vision calls on multi-page PDFs
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   let pages: string[];
   try {
@@ -17,33 +20,38 @@ export async function POST(request: Request) {
 
   const pageTexts: string[] = [];
 
-  for (const pageDataUrl of pages) {
-    const base64 = pageDataUrl.replace(/^data:image\/\w+;base64,/, '');
+  try {
+    for (const pageDataUrl of pages) {
+      const base64 = pageDataUrl.replace(/^data:image\/\w+;base64,/, '');
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/png', data: base64 },
-            },
-            {
-              type: 'text',
-              text: 'Extract all Hebrew text from this document page. Return only the extracted text, preserving line breaks and paragraph structure. Do not add commentary, headers, or explanations.',
-            },
-          ],
-        },
-      ],
-    });
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: 'image/png', data: base64 },
+              },
+              {
+                type: 'text',
+                text: 'Extract all Hebrew text from this document page. Return only the extracted text, preserving line breaks and paragraph structure. Do not add commentary, headers, or explanations.',
+              },
+            ],
+          },
+        ],
+      });
 
-    const block = response.content.find((b) => b.type === 'text');
-    if (block && block.type === 'text') {
-      pageTexts.push(block.text);
+      const block = response.content.find((b) => b.type === 'text');
+      if (block && block.type === 'text') {
+        pageTexts.push(block.text);
+      }
     }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Anthropic API error: ${message}` }, { status: 502 });
   }
 
   return NextResponse.json({ text: pageTexts.join('\n\n') });

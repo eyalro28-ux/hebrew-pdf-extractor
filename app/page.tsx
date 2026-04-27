@@ -25,7 +25,14 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pages }),
       });
-      if (!res.ok) throw new Error('Vision API returned ' + res.status);
+      if (!res.ok) {
+        let detail = `status ${res.status}`;
+        try {
+          const body = await res.json() as { error?: string };
+          if (body.error) detail = body.error;
+        } catch { /* non-JSON response */ }
+        throw new Error(detail);
+      }
       const { text: visionText } = await res.json() as { text: string };
       if (generation !== generationRef.current) return;
       if (!visionText.trim()) {
@@ -35,9 +42,10 @@ export default function Home() {
       }
       setText(visionText);
       setState('done');
-    } catch {
+    } catch (err) {
       if (generation !== generationRef.current) return;
-      setError('Failed to extract text via AI Vision.');
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(`AI Vision failed: ${detail}`);
       setState('error');
     }
   }
