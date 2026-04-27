@@ -21,7 +21,7 @@ export default function Home() {
       const pages = await renderPdfPagesToImages(file);
       if (generation !== generationRef.current) return;
 
-      // Send one page at a time to stay under Vercel's 4.5MB body limit
+      // Send one page at a time; route streams text to avoid Vercel 504
       const pageTexts: string[] = [];
       for (const page of pages) {
         if (generation !== generationRef.current) return;
@@ -38,7 +38,14 @@ export default function Home() {
           } catch { /* non-JSON response */ }
           throw new Error(detail);
         }
-        const { text: pageText } = await res.json() as { text: string };
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let pageText = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          pageText += decoder.decode(value, { stream: true });
+        }
         pageTexts.push(pageText);
       }
 
