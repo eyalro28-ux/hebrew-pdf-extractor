@@ -65,14 +65,15 @@ describe('POST /api/extract-vision', () => {
     expect(getMockCreate()).toHaveBeenCalledTimes(2);
   });
 
-  it('strips data URL prefix before sending to Claude', async () => {
+  it('strips data URL prefix and sets jpeg media_type before sending to Claude', async () => {
     getMockCreate().mockResolvedValueOnce({ content: [{ type: 'text', text: 'טקסט' }] });
 
-    await POST(makeRequest({ pages: ['data:image/png;base64,SGVsbG8='] }));
+    await POST(makeRequest({ pages: ['data:image/jpeg;base64,SGVsbG8='] }));
 
     const call = getMockCreate().mock.calls[0][0];
     const imageSource = call.messages[0].content[0].source;
     expect(imageSource.data).toBe('SGVsbG8=');
     expect(imageSource.type).toBe('base64');
+    expect(imageSource.media_type).toBe('image/jpeg');
   });
 });
