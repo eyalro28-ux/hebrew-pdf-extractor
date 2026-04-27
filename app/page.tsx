@@ -6,10 +6,45 @@ import { extractTextFromPdf, renderPdfPagesToImages, isLikelyGarbledHebrew } fro
 
 type State = 'idle' | 'loading' | 'vision' | 'done' | 'error';
 
+async function extractPageWithRetry(page: string, maxAttempts = 3): Promise<string> {
+  let lastError: Error = new Error('unknown');
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch('/api/extract-vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pages: [page] }),
+      });
+      if (!res.ok) {
+        let detail = `status ${res.status}`;
+        try {
+          const body = await res.json() as { error?: string };
+          if (body.error) detail = body.error;
+        } catch { /* non-JSON error body */ }
+        throw new Error(detail);
+      }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let text = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+      }
+      return text;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+  throw lastError;
+}
+
 export default function Home() {
   const [text, setText] = useState('');
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState('');
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const generationRef = useRef(0);
@@ -17,35 +52,16 @@ export default function Home() {
 
   async function runVision(file: File, generation: number) {
     setState('vision');
+    setProgress('');
     try {
       const pages = await renderPdfPagesToImages(file);
       if (generation !== generationRef.current) return;
 
-      // Send one page at a time; route streams text to avoid Vercel 504
       const pageTexts: string[] = [];
-      for (const page of pages) {
+      for (let i = 0; i < pages.length; i++) {
         if (generation !== generationRef.current) return;
-        const res = await fetch('/api/extract-vision', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pages: [page] }),
-        });
-        if (!res.ok) {
-          let detail = `status ${res.status}`;
-          try {
-            const body = await res.json() as { error?: string };
-            if (body.error) detail = body.error;
-          } catch { /* non-JSON response */ }
-          throw new Error(detail);
-        }
-        const reader = res.body!.getReader();
-        const decoder = new TextDecoder();
-        let pageText = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          pageText += decoder.decode(value, { stream: true });
-        }
+        if (pages.length > 1) setProgress(`page ${i + 1} of ${pages.length}`);
+        const pageText = await extractPageWithRetry(pages[i]);
         pageTexts.push(pageText);
       }
 
@@ -77,6 +93,7 @@ export default function Home() {
     setState('loading');
     setError('');
     setText('');
+    setProgress('');
     try {
       const extracted = await extractTextFromPdf(file);
       if (generation !== generationRef.current) return;
@@ -160,7 +177,9 @@ export default function Home() {
       )}
 
       {state === 'vision' && (
-        <p className="text-gray-500 mb-4">Running AI Vision extraction...</p>
+        <p className="text-gray-500 mb-4">
+          Running AI Vision extraction{progress ? ` — ${progress}` : ''}...
+        </p>
       )}
 
       {state === 'error' && (
