@@ -45,11 +45,10 @@ Hebrew final-form letters (ם,ן,ך,ף,ץ) never appear at the START of a valid 
 ## Key files
 - `lib/extractPdf.ts` — all PDF extraction logic + garbled detection
 - `app/page.tsx` — UI, file handling, orchestration (primary → Vision fallback)
-- `app/api/extract-vision/route.ts` — server route calling Anthropic Vision API
-- `vercel.json` — sets `maxDuration: 60` for the Vision route
+- `app/api/extract-vision/route.ts` — server route calling Anthropic Vision API; sets `maxDuration = 60` inline
 
 ## Vercel deployment
-Push to `main` → auto-deploys. Hobby plan supports up to 60s function timeout (configured in `vercel.json`). Pages are sent one at a time to stay under the 4.5MB body limit.
+Push to `main` → auto-deploys. Hobby plan supports up to 60s function timeout (configured inline in `app/api/extract-vision/route.ts` via `export const maxDuration = 60`). Pages are sent one at a time to stay under the 4.5MB body limit.
 
 ## Tests
 - `lib/__tests__/extractPdf.test.ts` — unit tests for `buildPageText` and `isLikelyGarbledHebrew`

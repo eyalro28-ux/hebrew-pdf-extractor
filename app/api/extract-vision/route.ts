@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   const base64 = pageDataUrl.replace(/^data:image\/[^;]+;base64,/, '');
 
   // Stream the response so Vercel sees data flowing immediately (~1-3s) instead
-  // of waiting for the full completion — avoids 504 on Hobby plan's 10s timeout.
+  // of waiting for the full completion — avoids 504 within the 60s function timeout.
   const anthropicStream = client.messages.stream({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
