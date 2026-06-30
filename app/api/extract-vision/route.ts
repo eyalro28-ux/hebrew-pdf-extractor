@@ -5,6 +5,14 @@ const client = new Anthropic();
 
 export const maxDuration = 60;
 
+// Cap the decoded image at 8MB. The client renders pages to JPEG one at a time,
+// so a legitimate page is well under this; the limit exists to stop a direct POST
+// from forwarding an arbitrarily large payload straight to the paid Vision API.
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+// The client renders pages to JPEG and the Vision call below sends image/jpeg,
+// so only JPEG data URLs are accepted here.
+const DATA_URL_PREFIX = /^data:image\/jpeg;base64,/;
+
 export async function POST(request: Request) {
   let pageDataUrl: string;
   try {
@@ -23,7 +31,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  // Reject anything that isn't an image data URL before it reaches the model.
+  if (!DATA_URL_PREFIX.test(pageDataUrl)) {
+    return NextResponse.json({ error: 'pages must be image data URLs' }, { status: 400 });
+  }
+
   const base64 = pageDataUrl.replace(/^data:image\/[^;]+;base64,/, '');
+
+  // base64 decodes to ~3/4 of its length in bytes.
+  const approxBytes = Math.floor(base64.length * 0.75);
+  if (approxBytes > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: 'page image too large' }, { status: 413 });
+  }
 
   // Stream the response so Vercel sees data flowing immediately (~1-3s) instead
   // of waiting for the full completion — avoids 504 within the 60s function timeout.

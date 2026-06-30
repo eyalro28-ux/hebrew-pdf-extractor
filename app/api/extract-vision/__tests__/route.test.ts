@@ -82,6 +82,19 @@ describe('POST /api/extract-vision', () => {
     expect(body.error).toMatch(/strings/);
   });
 
+  it('returns 400 when the page is not an image data URL', async () => {
+    const res = await POST(makeRequest({ pages: ['not-a-data-url'] }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/image data URLs/);
+  });
+
+  it('returns 413 when the page image exceeds the size cap', async () => {
+    const huge = 'A'.repeat(12 * 1024 * 1024); // ~9MB decoded, over the 8MB cap
+    const res = await POST(makeRequest({ pages: [`data:image/jpeg;base64,${huge}`] }));
+    expect(res.status).toBe(413);
+  });
+
   it('streams extracted text for a single page', async () => {
     mockStream.mockReturnValueOnce(makeAsyncIterable([
       { type: 'content_block_delta', delta: { type: 'text_delta', text: 'שלום ' } },
