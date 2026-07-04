@@ -14,6 +14,14 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DATA_URL_PREFIX = /^data:image\/jpeg;base64,/;
 
 export async function POST(request: Request) {
+  // Optional shared-secret guard for this paid endpoint. When EXTRACT_TOKEN is
+  // set on the server, callers must send a matching `x-api-token` header;
+  // otherwise (env var unset) the endpoint stays open so local dev just works.
+  const expectedToken = process.env.EXTRACT_TOKEN;
+  if (expectedToken && request.headers.get('x-api-token') !== expectedToken) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let pageDataUrl: string;
   try {
     const body = await request.json() as { pages: unknown };
